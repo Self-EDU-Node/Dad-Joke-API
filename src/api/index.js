@@ -1,43 +1,32 @@
 import https from "https";
-import { appendFile, existsSync } from 'node:fs';
-import * as fs from "fs";
+import { randomNumber } from "../utils/index.js";
+import { recordJoke } from "../handlers/recordJoke.js";
 
-const file_path = "src/jokesStore/";
-const file_name = "jokes.json";
-
-export const getDedJoke = () => {
-  const req = https.get('https://icanhazdadjoke.com', {
-    headers: {
-      Accept: 'application/json',
-    }}, (res) => {
-    let data = '';
-    res.on("data", chunk => {
-      data += chunk;
+export const getDedJoke = (params = null) => {
+  try {
+    const req = https.get(`https://icanhazdadjoke.com/search?limit=4${params ? `&term=${params}` : ''}`, {
+      headers: {
+        Accept: 'application/json',
+      }}, (res) => {
+      let data = '';
+      res.on("data", chunk => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        const jokeData = JSON.parse(data);
+        const randoJokeData = jokeData.results[randomNumber(jokeData.results.length)];
+        recordJoke(randoJokeData);
+        if (jokeData.results.length) {
+          console.log(randoJokeData.joke);
+        } else {
+          console.log('Jokes were not found');
+        }
+      });
     });
-    res.on("end", () => {
-      const jokeData = JSON.parse(data);
-      if (existsSync(file_path + file_name)) {
-        const jokesData = fs.readFileSync(file_path + file_name)
-        const parsData = JSON.parse(jokesData.toString());
-        parsData.push(data);
-        const result = JSON.stringify(parsData).toString();
-        fs.writeFileSync(file_path + file_name, result);
-        console.log('Joke is recorded successfully.');
-      } else {
-        const res = JSON.stringify([data]).toString();
-        fs.mkdirSync(file_path, err => {
-          if (err) throw err;
-        });
-        appendFile(file_path + file_name, res, err => {
-          if (err) throw err;
-          console.log('Joke is created successfully.');
-        })
-      }
-      console.log(jokeData.joke);
+    req.on('error', (err) => {
+      console.error(err);
     });
-  });
-
-  req.on('error', function(e) {
+  } catch (e) {
     console.error(e);
-  });
+  }
 }
